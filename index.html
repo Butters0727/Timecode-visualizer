@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timecode Visualizer</title>
+    <link href="https://visjs.github.io/vis-timeline/standalone/umd/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
+    <link href="style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <h1>Timecode Visualizer</h1>
+    <div id="app-container">
+        <button id="add-files-button" style="display: none;">+ Add Files</button>
+        <div id="drop-zone">
+            <p>Drag & Drop files anywhere, or <a href="#" id="file-select-link">click to select</a>.</p>
+            <input type="file" id="file-input" multiple style="display: none;">
+        </div>
+        <div id="status"></div>
+        <div id="timeline"></div>
+    </div>
+    <div id="drag-overlay">
+        <p>Drop files to process</p>
+    </div>
+    <div id="time-tooltip"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/mp4box@0.5.2/dist/mp4box.all.min.js"></script>
+    <script src="https://visjs.github.io/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
