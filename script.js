@@ -121,7 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 start: new Date(file.startTime),
                 end: new Date(file.endTime),
                 type: 'range',
-                title: `Start: ${startStr}<br>End: ${endStr}`,
                 className: file.name.toLowerCase().endsWith('.tc') ? 'tc-range' : 'video-range'
             });
         });
@@ -132,6 +131,69 @@ document.addEventListener('DOMContentLoaded', () => {
                 minHeight: '250px',
                 showCurrentTime: true,
                 zoomMin: 1000,
+                editable: {
+                    updateTime: true, // allow dragging and resizing
+                    updateGroup: true, // allow changing groups
+                    add: false,
+                    remove: false,
+                    overrideItems: false,
+                    onMoving: function (item, callback) {
+                        const snapThreshold = 500; // Same as the snap function
+                        let snappedStart = item.start.getTime();
+                        let snappedEnd = item.end.getTime();
+                        let minDistanceStart = Infinity;
+                        let minDistanceEnd = Infinity;
+
+                        timelineItems.forEach(otherItem => {
+                            if (otherItem.id === item.id) return; // Don't snap to self
+
+                            const otherItemStart = otherItem.start.getTime();
+                            const otherItemEnd = otherItem.end.getTime();
+
+                            // Check snapping for start of current item to start/end of other items
+                            const distToOtherStart = Math.abs(snappedStart - otherItemStart);
+                            const distToOtherEnd = Math.abs(snappedStart - otherItemEnd);
+
+                            if (distToOtherStart < minDistanceStart) {
+                                minDistanceStart = distToOtherStart;
+                                if (minDistanceStart < snapThreshold) {
+                                    snappedStart = otherItemStart;
+                                }
+                            }
+                            if (distToOtherEnd < minDistanceStart) {
+                                minDistanceStart = distToOtherEnd;
+                                if (minDistanceStart < snapThreshold) {
+                                    snappedStart = otherItemEnd;
+                                }
+                            }
+
+                            // Check snapping for end of current item to start/end of other items
+                            const distEndToOtherStart = Math.abs(snappedEnd - otherItemStart);
+                            const distEndToOtherEnd = Math.abs(snappedEnd - otherItemEnd);
+
+                            if (distEndToOtherStart < minDistanceEnd) {
+                                minDistanceEnd = distEndToOtherStart;
+                                if (minDistanceEnd < snapThreshold) {
+                                    snappedEnd = otherItemStart;
+                                }
+                            }
+                            if (distEndToOtherEnd < minDistanceEnd) {
+                                minDistanceEnd = distEndToOtherEnd;
+                                if (minDistanceEnd < snapThreshold) {
+                                    snappedEnd = otherItemEnd;
+                                }
+                            }
+                        });
+
+                        item.start = new Date(snappedStart);
+                        item.end = new Date(snappedEnd);
+                        callback(item); // Return the modified item
+                    },
+                    onMove: function (item, callback) {
+                        // Finalize the move, no additional snapping needed here as onMoving handles it
+                        callback(item);
+                    }
+                },
                 moment: (date) => vis.moment(date).utc(),
                 format: {
                     minorLabels: { second: 'HH:mm:ss', minute: 'HH:mm:ss', hour: 'HH:mm:ss' },
@@ -140,25 +202,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 snap: function (date) {
                     const time = date.getTime();
                     let snappedTime = time;
-                    const snapDistance = 500; // Snap within 500ms
+                    const snapThreshold = 500; // Snap within 500ms
                     let minDistance = Infinity;
                     let closestItemTime = null;
 
                     timelineItems.forEach(item => {
-                        const itemData = fileMetas[item.id];
-                        if (!itemData) return;
-                        [itemData.startTime, itemData.endTime].forEach(itemTime => {
+                        // Use the actual start and end times from the timeline item, which are already epoch timestamps
+                        const itemStart = item.start.getTime();
+                        const itemEnd = item.end.getTime();
+
+                        [itemStart, itemEnd].forEach(itemTime => {
                             const dist = Math.abs(time - itemTime);
                             if (dist < minDistance) {
                                 minDistance = dist;
                                 closestItemTime = itemTime;
+                                console.log('Found closer item time:', new Date(closestItemTime), 'minDistance:', minDistance);
                             }
                         });
                     });
 
-                    if (closestItemTime !== null && minDistance < snapDistance) {
+                    console.log('After loop - minDistance:', minDistance, 'closestItemTime:', closestItemTime ? new Date(closestItemTime) : 'null');
+
+                    if (closestItemTime !== null && minDistance < snapThreshold) {
                         snappedTime = closestItemTime;
+                        // Removed visual feedback class as per user request
+                    } else {
+                        // Removed visual feedback class as per user request
                     }
+                    console.log('Snap function called. Original time:', new Date(time), 'Snapped time:', new Date(snappedTime));
                     return new Date(snappedTime);
                 }
             };
@@ -171,15 +242,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Always move the vertical line
                 timeline.setCustomTime(new Date(time), 'hover-line');
 
+                timeTooltip.style.display = 'block';
+                timeTooltip.style.left = (properties.event.pageX + 15) + 'px';
+                timeTooltip.style.top = (properties.event.pageY - 10) + 'px';
+
                 if (properties.item !== null) {
-                    // If the mouse is over an item, hide our custom tooltip 
-                    // and let the library show the item's own title.
-                    timeTooltip.style.display = 'none';
+                    const item = timelineItems.get(properties.item);
+                    if (item) {
+                        const startMs = item.start.getTime();
+                        const endMs = item.end.getTime();
+                        const currentMouseTimeMs = properties.time.getTime();
+                        const elapsedInBlockMs = currentMouseTimeMs - startMs;
+                        timeTooltip.innerHTML = `Start: ${millisToHMS(startMs)}<br>End: ${millisToHMS(endMs)}<br>Elapsed in Block: ${millisToHMS(elapsedInBlockMs)}`;
+                    }
                 } else {
-                    // If the mouse is over the timeline background, show our custom tooltip.
-                    timeTooltip.style.display = 'block';
-                    timeTooltip.style.left = (properties.event.pageX + 15) + 'px';
-                    timeTooltip.style.top = (properties.event.pageY - 10) + 'px';
                     timeTooltip.innerHTML = millisToHMS(time, true);
                 }
             });
