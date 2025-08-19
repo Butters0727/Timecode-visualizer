@@ -4,26 +4,11 @@ import webbrowser
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import tempfile
-
-# --- Auto-detect ffprobe path ---
-def find_ffprobe():
-    # Look for ffprobe.exe in the same directory as the script
-    # os.path.dirname(__file__) might be empty if run from interactive shell, so handle that
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    local_path = os.path.join(script_dir, 'ffprobe.exe')
-    if os.path.exists(local_path):
-        print(f"Found local ffprobe at: {local_path}")
-        return local_path
-    # Fallback to assuming it's in the system PATH
-    print("Local ffprobe not found, falling back to system PATH.")
-    return "ffprobe"
-
-FFPROBE_PATH = find_ffprobe()
+import ffmpeg
 
 app = Flask(__name__)
 CORS(app)
 
-# --- API Route for processing files ---
 @app.route('/process', methods=['POST'])
 def process_file():
     if 'file' not in request.files:
@@ -43,10 +28,12 @@ def process_file():
             end_millis = time_str_to_millis(end_str)
 
         elif file.filename.lower().endswith('.mp4'):
-            start_str = get_mp4_timecode(temp_file_path)
-            duration_command = [FFPROBE_PATH, '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', temp_file_path]
-            duration_result = subprocess.run(duration_command, capture_output=True, text=True, check=True)
-            duration_sec = float(duration_result.stdout.strip())
+            timecode_data = ffmpeg.probe(temp_file_path, select_streams='v:0', show_entries='stream_tags=timecode')
+            timecode = timecode_data['streams'][0]['tags']['timecode'] if 'tags' in timecode_data['streams'][0] and 'timecode' in timecode_data['streams'][0]['tags'] else "00:00:00:00"
+            start_str = timecode
+
+            duration_data = ffmpeg.probe(temp_file_path, select_streams='v:0', show_entries='format=duration')
+            duration_sec = float(duration_data['format']['duration'])
             
             start_millis = time_str_to_millis(start_str)
             end_millis = start_millis + (duration_sec * 1000)
@@ -65,7 +52,6 @@ def process_file():
         os.remove(temp_file_path)
         return jsonify({"error": str(e)}), 500
 
-# --- Routes for serving the frontend application ---
 @app.route('/')
 def serve_index():
     return send_from_directory('.', 'index.html')
@@ -74,7 +60,6 @@ def serve_index():
 def serve_static_files(path):
     return send_from_directory('.', path)
 
-# --- Helper Functions ---
 def parse_tc_file(tc_path):
     with open(tc_path, 'r', errors='ignore') as f:
         lines = [line for line in f if line.strip()]
@@ -87,17 +72,7 @@ def parse_tc_file(tc_path):
         return start_time_str, end_time_str
 
 def get_mp4_timecode(mp4_path):
-    command = [FFPROBE_PATH, '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream_tags=timecode', '-of', 'default=noprint_wrappers=1:nokey=1', mp4_path]
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        timecode = result.stdout.strip()
-        if not timecode:
-            return "00:00:00:00"
-        return timecode
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"Error running ffprobe: {e}")
-        print("Please ensure ffprobe.exe is in the same directory as this script, or in your system's PATH.")
-        raise e
+    pass
 
 def time_str_to_millis(time_str):
     parts = time_str.split(':')
