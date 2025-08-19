@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 snap: function (date) {
                     const time = date.getTime();
                     let snappedTime = time;
-                    const snapThreshold = 500; // Snap within 500ms
+                    const snapThreshold = 2000; // Snap within 500ms
                     let minDistance = Infinity;
                     let closestItemTime = null;
 
@@ -216,20 +216,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (dist < minDistance) {
                                 minDistance = dist;
                                 closestItemTime = itemTime;
-                                console.log('Found closer item time:', new Date(closestItemTime), 'minDistance:', minDistance);
                             }
                         });
                     });
 
-                    console.log('After loop - minDistance:', minDistance, 'closestItemTime:', closestItemTime ? new Date(closestItemTime) : 'null');
-
                     if (closestItemTime !== null && minDistance < snapThreshold) {
                         snappedTime = closestItemTime;
-                        // Removed visual feedback class as per user request
-                    } else {
-                        // Removed visual feedback class as per user request
                     }
-                    console.log('Snap function called. Original time:', new Date(time), 'Snapped time:', new Date(snappedTime));
+
+                    
                     return new Date(snappedTime);
                 }
             };
@@ -237,10 +232,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add a custom time bar for the hover effect
             timeline.addCustomTime(new Date(0), 'hover-line');
 
-            timeline.on('mouseMove', (properties) => {
-                const time = properties.time.getTime();
-                // Always move the vertical line
-                timeline.setCustomTime(new Date(time), 'hover-line');
+                        timeline.on('mouseMove', (properties) => {
+                const originalTime = properties.time.getTime();
+                const snappedTime = timeline.options.snap(properties.time).getTime(); // Get the snapped time in milliseconds
+
+                // Always move the vertical line to the snapped time
+                timeline.setCustomTime(new Date(snappedTime), 'hover-line');
 
                 timeTooltip.style.display = 'block';
                 timeTooltip.style.left = (properties.event.pageX + 15) + 'px';
@@ -251,12 +248,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (item) {
                         const startMs = item.start.getTime();
                         const endMs = item.end.getTime();
-                        const currentMouseTimeMs = properties.time.getTime();
-                        const elapsedInBlockMs = currentMouseTimeMs - startMs;
+                        const elapsedInBlockMs = snappedTime - startMs; // Use snappedTime for elapsed
                         timeTooltip.innerHTML = `Start: ${millisToHMS(startMs)}<br>End: ${millisToHMS(endMs)}<br>Elapsed: ${millisToHMS(elapsedInBlockMs)}`;
                     }
                 } else {
-                    timeTooltip.innerHTML = millisToHMS(time, true);
+                    timeTooltip.innerHTML = millisToHMS(snappedTime, true); // Use snappedTime for general display
                 }
             });
 
