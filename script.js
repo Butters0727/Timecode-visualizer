@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const endMs = item.end.getTime();
                         const currentMouseTimeMs = properties.time.getTime();
                         const elapsedInBlockMs = currentMouseTimeMs - startMs;
-                        timeTooltip.innerHTML = `Start: ${millisToHMS(startMs)}<br>End: ${millisToHMS(endMs)}<br>Elapsed in Block: ${millisToHMS(elapsedInBlockMs)}`;
+                        timeTooltip.innerHTML = `Start: ${millisToHMS(startMs)}<br>End: ${millisToHMS(endMs)}<br>Elapsed: ${millisToHMS(elapsedInBlockMs)}`;
                     }
                 } else {
                     timeTooltip.innerHTML = millisToHMS(time, true);
